@@ -21,6 +21,7 @@ interface HeaderProps {
   branches: Branch[];
   clockIns: ClockInLog[];
   setActiveTab: (tab: string) => void;
+  onInstall?: () => void;
 }
 
 export default function Header({
@@ -36,6 +37,7 @@ export default function Header({
   branches,
   clockIns,
   setActiveTab,
+  onInstall,
 }: HeaderProps) {
   const [showSimulator, setShowSimulator] = useState(false);
 
@@ -135,6 +137,18 @@ export default function Header({
 
       {/* Role Switcher & User profile */}
       <div className="flex items-center gap-3">
+        {onInstall && (
+          <button
+            onClick={onInstall}
+            className="flex items-center gap-1.5 bg-[#155E37] text-white hover:bg-[#0E4025] px-3 py-1.5 rounded-full text-xs font-bold transition shadow-sm cursor-pointer"
+            title="Instalar aplicación"
+            id="pwa_install_nav_btn"
+          >
+            <span>📱</span>
+            <span className="hidden xs:inline">Instalar App</span>
+          </button>
+        )}
+
         <div className="relative">
           {/* Active Sim Badge */}
           <button

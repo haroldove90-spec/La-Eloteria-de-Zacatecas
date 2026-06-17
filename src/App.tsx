@@ -75,6 +75,30 @@ export default function App() {
   const [currentBranchId, setCurrentBranchId] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
+  // 3. PWA Installation Handler State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallHelp, setShowInstallHelp] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`PWA install response: ${outcome}`);
+      setDeferredPrompt(null);
+    } else {
+      setShowInstallHelp(true);
+    }
+  };
+
   // Multi-viewport switcher based on current role permissions
   const renderActiveModule = () => {
     if (currentRole === 'staff') {
@@ -359,6 +383,7 @@ export default function App() {
         branches={branches}
         clockIns={clockIns}
         setActiveTab={setActiveTab}
+        onInstall={handleInstallApp}
       />
 
       <div className="flex flex-row flex-1 w-full relative">
@@ -394,6 +419,66 @@ export default function App() {
         setActiveTab={setActiveTab}
         currentRole={currentRole}
       />
+
+      {/* PWA Install Help Modal */}
+      {showInstallHelp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 animate-fadeIn" id="pwa_install_help_modal">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-md overflow-hidden text-stone-800">
+            <div className="bg-[#155E37] text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <img src="https://appdesignproyectos.com/laeloterialogo.png" className="w-10 h-10 object-contain rounded-xl" alt="Mascota" />
+                <div>
+                  <h3 className="font-bold text-sm tracking-tight">Instalar La Elotería</h3>
+                  <p className="text-[10px] text-amber-100 font-medium">Lleva el control de tu sucursal en tu pantalla de inicio</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowInstallHelp(false)}
+                className="text-white/80 hover:text-white font-bold text-lg p-1"
+                aria-label="Cerrar modal de instalación"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="text-xs space-y-3 leading-relaxed">
+                <p>
+                  Esta Web App (PWA) está optimizada para ser instalada en cualquier dispositivo móvil o de escritorio como si fuese una aplicación nativa.
+                </p>
+                
+                {/* Visual Instructions */}
+                <div className="bg-stone-50 border border-stone-200 rounded-xl p-4 space-y-3 text-stone-700">
+                  <div className="flex gap-2.5 items-start">
+                    <span className="bg-[#155E37]/10 text-[#155E37] font-bold text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">1</span>
+                    <p className="font-sans">
+                      <strong>Si estás en Android / Chrome:</strong> Pulsa los tres puntos de opciones y selecciona <strong>&ldquo;Instalar aplicación&rdquo;</strong> o <strong>&ldquo;Añadir a pantalla de inicio&rdquo;</strong>.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 items-start">
+                    <span className="bg-[#155E37]/10 text-[#155E37] font-bold text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">2</span>
+                    <p className="font-sans">
+                      <strong>Si estás en iOS / Safari:</strong> Pulsa el botón de <strong>Compartir</strong> (flecha arriba) y desplázate hacia abajo hasta seleccionar <strong>&ldquo;Añadir a pantalla de inicio&rdquo;</strong>.
+                    </p>
+                  </div>
+                  <div className="flex gap-2.5 items-start">
+                    <span className="bg-[#155E37]/10 text-[#155E37] font-bold text-xs rounded-full w-5 h-5 flex items-center justify-center shrink-0 mt-0.5">3</span>
+                    <p className="font-sans">
+                      <strong>Si estás en el Iframe de AI Studio:</strong> Te recomendamos abrir la app en una <strong>nueva pestaña</strong> externa usando el icono de la esquina superior, y desde ahí pulsar el botón <strong>&ldquo;Instalar Aplicación&rdquo;</strong> en la barra de navegación.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowInstallHelp(false)}
+                className="w-full bg-[#155E37] hover:bg-[#0E4025] text-white p-3 rounded-xl font-bold text-xs transition shadow-md"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

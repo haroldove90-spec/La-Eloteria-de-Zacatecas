@@ -46,7 +46,13 @@ export default function CajeroPOS({
   });
 
   const [activeCategory, setActiveCategory] = useState<MenuItem['category']>('Elotes');
-  const [cart, setCart] = useState<Array<{ menuItem: MenuItem; quantity: number }>>([]);
+  const [cart, setCart] = useState<Array<{
+    menuItem: MenuItem;
+    quantity: number;
+    chile?: 'pica' | 'no_pica' | 'sin';
+    aderezo?: 'mayonesa' | 'crema' | 'mantequilla' | 'sin';
+    extraQueso?: boolean;
+  }>>([]);
   const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'tarjeta'>('efectivo');
 
   // Checkout Modal states
@@ -57,12 +63,54 @@ export default function CajeroPOS({
   const [notes, setNotes] = useState('');
   const [receipt, setReceipt] = useState<Sale | null>(null);
 
+  // --- 🌟 SIMULATION ENHANCEMENTS STATE ---
+  // Modifiers state
+  const [showModifiers, setShowModifiers] = useState<MenuItem | null>(null);
+  const [selectedChile, setSelectedChile] = useState<'pica' | 'no_pica' | 'sin'>('no_pica');
+  const [selectedAderezo, setSelectedAderezo] = useState<'mayonesa' | 'crema' | 'mantequilla' | 'sin'>('mayonesa');
+  const [extraQueso, setExtraQueso] = useState<boolean>(false);
+
+  // Quick cash movements (entradas / salidas de efectivo rápidos)
+  const [cashAdjustments, setCashAdjustments] = useState<Array<{
+    id: string;
+    type: 'entrada' | 'salida';
+    amount: number;
+    description: string;
+    timestamp: string;
+  }>>([]);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [adjType, setAdjType] = useState<'entrada' | 'salida'>('salida');
+  const [adjAmount, setAdjAmount] = useState<number>(0);
+  const [adjDesc, setAdjDesc] = useState('');
+
+  // Supervisor authorization for discounts / cancellations
+  const [appliedDiscount, setAppliedDiscount] = useState<number>(0); // Percentage 0 - 100
+  const [showAuthModal, setShowAuthModal] = useState<'descuento' | 'cancelacion' | null>(null);
+  const [authPin, setAuthPin] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [pendingDiscountValue, setPendingDiscountValue] = useState<number>(0);
+
   // Filter active menu items
   const activeItems = menuItems.filter(item => item.active && item.category === activeCategory);
 
   // Cart operations
-  const addToCart = (item: MenuItem) => {
-    // Check stock for ingredients
+  const handleItemClick = (item: MenuItem) => {
+    if (['Elotes', 'Esquites', 'Especialidades'].includes(item.category)) {
+      setSelectedChile('no_pica');
+      setSelectedAderezo('mayonesa');
+      setExtraQueso(false);
+      setShowModifiers(item);
+    } else {
+      addToCartWithModifiers(item, 'sin', 'sin', false);
+    }
+  };
+
+  const addToCartWithModifiers = (
+    item: MenuItem,
+    chile: 'pica' | 'no_pica' | 'sin',
+    aderezo: 'mayonesa' | 'crema' | 'mantequilla' | 'sin',
+    extra: boolean
+  ) => {
     const missingIngredients = getMissingIngredientsForQty(item, 1);
     if (missingIngredients.length > 0) {
       alert(`⚠️ Stock Insuficiente en Almacén:\nFalta: ${missingIngredients.join(', ')}`);
@@ -70,12 +118,25 @@ export default function CajeroPOS({
     }
 
     setCart(prev => {
-      const exists = prev.find(i => i.menuItem.id === item.id);
+      const exists = prev.find(i => 
+        i.menuItem.id === item.id && 
+        i.chile === chile && 
+        i.aderezo === aderezo && 
+        (i.extraQueso || false) === extra
+      );
       if (exists) {
-        return prev.map(i => i.menuItem.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => 
+          (i.menuItem.id === item.id && i.chile === chile && i.aderezo === aderezo && (i.extraQueso || false) === extra)
+            ? { ...i, quantity: i.quantity + 1 } 
+            : i
+        );
       }
-      return [...prev, { menuItem: item, quantity: 1 }];
+      return [...prev, { menuItem: item, quantity: 1, chile, aderezo, extraQueso: extra }];
     });
+  };
+
+  const addToCart = (item: MenuItem) => {
+    addToCartWithModifiers(item, 'sin', 'sin', false);
   };
 
   const getMissingIngredientsForQty = (item: MenuItem, requestedQty: number): string[] => {
@@ -84,8 +145,7 @@ export default function CajeroPOS({
       const raw = rawIngredients.find(r => r.id === req.rawItemId);
       if (raw) {
         const currentStock = raw.currentStock[branchId] || 0;
-        // Calc cart consumption + new item consumption
-        const cartQty = cart.find(c => c.menuItem.id === item.id)?.quantity || 0;
+        const cartQty = cart.filter(c => c.menuItem.id === item.id).reduce((sum, c) => sum + c.quantity, 0);
         const totalQtyNeeded = req.quantity * (cartQty + requestedQty);
         if (currentStock < totalQtyNeeded) {
           missing.push(`${raw.name} (${currentStock} disp)`);
@@ -95,25 +155,45 @@ export default function CajeroPOS({
     return missing;
   };
 
-  const removeFromCart = (itemId: string) => {
-    setCart(prev => prev.map(i => {
-      if (i.menuItem.id === itemId) {
-        return { ...i, quantity: i.quantity - 1 };
+  const incrementCartItem = (index: number) => {
+    const item = cart[index];
+    const missingIngredients = getMissingIngredientsForQty(item.menuItem, 1);
+    if (missingIngredients.length > 0) {
+      alert(`⚠️ Stock Insuficiente en Almacén:\nFalta: ${missingIngredients.join(', ')}`);
+      return;
+    }
+
+    setCart(prev => prev.map((c, idx) => {
+      if (idx === index) {
+        return { ...c, quantity: c.quantity + 1 };
       }
-      return i;
-    }).filter(i => i.quantity > 0));
+      return c;
+    }));
   };
 
-  const clearCart = () => setCart([]);
+  const decrementCartItem = (index: number) => {
+    setCart(prev => prev.map((c, idx) => {
+      if (idx === index) {
+        return { ...c, quantity: c.quantity - 1 };
+      }
+      return c;
+    }).filter(c => c.quantity > 0));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+    setAppliedDiscount(0);
+  };
 
   const cartTotal = cart.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+  const discountedTotal = Math.max(0, cartTotal - (cartTotal * (appliedDiscount / 100)));
 
   // Checkout transaction execution
   const handleCheckoutSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
 
-    if (paymentMethod === 'efectivo' && cashReceived < cartTotal) {
+    if (paymentMethod === 'efectivo' && cashReceived < discountedTotal) {
       alert('⚠️ El efectivo recibido debe ser mayor o igual al total de la compra.');
       return;
     }
@@ -126,14 +206,23 @@ export default function CajeroPOS({
       branchId,
       employeeId: currentEmployee.id,
       timestamp,
-      items: cart.map(c => ({
-        menuItemId: c.menuItem.id,
-        name: c.menuItem.name,
-        quantity: c.quantity,
-        price: c.menuItem.price,
-        cost: c.menuItem.cost
-      })),
-      total: cartTotal,
+      items: cart.map(c => {
+        let nameWithModifiers = c.menuItem.name;
+        if (c.chile && c.chile !== 'sin') {
+          const chileStr = c.chile === 'pica' ? '🌶️ Pica' : '🌽 No pica';
+          const aderezoStr = c.aderezo && c.aderezo !== 'sin' ? `, ${c.aderezo}` : '';
+          const extraStr = c.extraQueso ? ', +Queso' : '';
+          nameWithModifiers = `${c.menuItem.name} (${chileStr}${aderezoStr}${extraStr})`;
+        }
+        return {
+          menuItemId: c.menuItem.id,
+          name: nameWithModifiers,
+          quantity: c.quantity,
+          price: c.menuItem.price * (1 - appliedDiscount / 100),
+          cost: c.menuItem.cost
+        };
+      }),
+      total: discountedTotal,
       paymentMethod,
       status: 'completada'
     };
@@ -142,9 +231,21 @@ export default function CajeroPOS({
     setRawIngredients(prev => prev.map(raw => {
       let totalConsumed = 0;
       cart.forEach(cartItem => {
+        // Base ingredient recipe
         const req = cartItem.menuItem.ingredients.find(i => i.rawItemId === raw.id);
         if (req) {
           totalConsumed += req.quantity * cartItem.quantity;
+        }
+
+        // Custom modifier consumption triggers
+        if (raw.id === 'raw_chile_pica' && cartItem.chile === 'pica') {
+          totalConsumed += 0.01 * cartItem.quantity; // 10g of chile pica
+        }
+        if (raw.id === 'raw_chile_no_pica' && cartItem.chile === 'no_pica') {
+          totalConsumed += 0.01 * cartItem.quantity; // 10g of chile no pica
+        }
+        if (raw.id === 'raw_queso_cotija' && cartItem.extraQueso) {
+          totalConsumed += 0.015 * cartItem.quantity; // 15g of queso cotija extra
         }
       });
 
@@ -160,6 +261,7 @@ export default function CajeroPOS({
     setSales(prev => [newSale, ...prev]);
     setReceipt(newSale);
     setCart([]);
+    setAppliedDiscount(0);
     setShowCheckout(false);
     setCashReceived(0);
   };
@@ -178,8 +280,12 @@ export default function CajeroPOS({
       .filter(s => s.branchId === branchId && s.employeeId === currentEmployee.id && s.paymentMethod === 'tarjeta' && s.status === 'completada')
       .reduce((sum, s) => sum + s.total, 0);
 
-    // Expected is: Shift initial cash + cash sales
-    const expectedCash = activeSession.initialCash + cashSales;
+    // Sum quick entradas / salidas (expenses)
+    const totalEntradas = cashAdjustments.filter(a => a.type === 'entrada').reduce((sum, a) => sum + a.amount, 0);
+    const totalSalidas = cashAdjustments.filter(a => a.type === 'salida').reduce((sum, a) => sum + a.amount, 0);
+
+    // Expected is: Shift initial cash + cash sales + entradas - salidas
+    const expectedCash = activeSession.initialCash + cashSales + totalEntradas - totalSalidas;
     const difference = declaredCash - expectedCash;
 
     const newCorte: CorteCaja = {
@@ -197,11 +303,12 @@ export default function CajeroPOS({
       declaredCash,
       difference,
       status: 'pendiente',
-      notes
+      notes: notes + (cashAdjustments.length > 0 ? ` [Gastos Rápidos: ${cashAdjustments.map(a => `${a.type.toUpperCase()} $${a.amount} - ${a.description}`).join('; ')}]` : '')
     };
 
     setCortes(prev => [newCorte, ...prev]);
     setActiveSession(null);
+    setCashAdjustments([]);
     setShowShiftCut(false);
     alert('✅ Corte de Turno enviado con éxito a revisión gerencial en formato CIEGO.');
   };
@@ -232,17 +339,31 @@ export default function CajeroPOS({
         </div>
 
         {activeSession ? (
-          <button
-            onClick={() => {
-              setDeclaredCash(0);
-              setNotes('');
-              setShowShiftCut(true);
-            }}
-            className="flex items-center gap-1.5 bg-[#155E37] hover:bg-[#0E4025] text-white font-bold text-xs py-2 px-3.5 rounded-lg shadow-sm transition"
-            id="cut_shift_btn"
-          >
-            <LogOut className="w-4 h-4" /> Realizar Corte de Turno (Ciego)
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setAdjType('salida');
+                setAdjAmount(0);
+                setAdjDesc('');
+                setShowAdjustmentModal(true);
+              }}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3 rounded-lg shadow-sm transition cursor-pointer"
+              id="quick_expense_btn"
+            >
+              💸 Gastos / Caja Chica
+            </button>
+            <button
+              onClick={() => {
+                setDeclaredCash(0);
+                setNotes('');
+                setShowShiftCut(true);
+              }}
+              className="flex items-center gap-1.5 bg-[#155E37] hover:bg-[#0E4025] text-white font-bold text-xs py-2 px-3.5 rounded-lg shadow-sm transition cursor-pointer"
+              id="cut_shift_btn"
+            >
+              <LogOut className="w-4 h-4" /> Realizar Corte de Turno (Ciego)
+            </button>
+          </div>
         ) : (
           <button
             onClick={handleOpenRegister}
@@ -287,13 +408,13 @@ export default function CajeroPOS({
               ))}
             </div>
 
-            {/* Grid display */}
+             {/* Grid display */}
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5">
               {activeItems.map(item => (
                 <div
                   key={item.id}
-                  onClick={() => addToCart(item)}
-                  className="bg-white border border-gray-100 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:border-amber-300 transition cursor-pointer flex flex-col justify-between h-40 group select-none"
+                  onClick={() => handleItemClick(item)}
+                  className="bg-white border border-gray-100 rounded-xl p-3.5 shadow-sm hover:shadow-md hover:border-amber-300 transition cursor-pointer flex flex-col justify-between h-40 group select-none relative overflow-hidden"
                 >
                   <div>
                     <h4 className="text-xs font-extrabold text-stone-800 group-hover:text-[#155E37] truncate">{item.name}</h4>
@@ -324,28 +445,38 @@ export default function CajeroPOS({
               <div className="h-56 flex flex-col items-center justify-center text-center text-stone-400 text-xs">
                 <ShoppingCart className="w-8 h-8 text-stone-300 mb-2" />
                 <p>Carrito vacío.</p>
-                <p className="text-[10px] text-stone-400 mt-1 max-w-[180px] leading-snug">Presiona cualquier platillo elotero a la izquierda para agregarlo.</p>
+                <p className="text-[10px] text-stone-400 mt-1 max-w-[180px] leading-snug">Presiona cualquier platillo elotero a la izquierda para agregarlo y personalizarlo.</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                {cart.map(item => (
-                  <div key={item.menuItem.id} className="flex items-center justify-between gap-3 text-xs p-2 bg-stone-50/50 border border-stone-100 rounded-lg">
+                {cart.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between gap-3 text-xs p-2 bg-stone-50/50 border border-stone-100 rounded-lg">
                     <div className="truncate">
                       <p className="font-bold text-stone-800 truncate">{item.menuItem.name}</p>
-                      <p className="text-[10px] font-mono text-[#155E37] font-semibold">${item.menuItem.price.toFixed(2)} c/u</p>
+                      
+                      {/* Render custom modifiers dynamically */}
+                      {item.chile && item.chile !== 'sin' && (
+                        <div className="mt-0.5 text-[9.5px] text-stone-500 bg-[#155E37]/5 px-1.5 py-0.5 rounded flex flex-wrap gap-1 leading-none font-sans mt-1">
+                          <span>🌶️ {item.chile === 'pica' ? 'Pica' : 'No pica'}</span>
+                          <span>• 🧴 {item.aderezo}</span>
+                          {item.extraQueso && <span>• 🧀 +Queso (Estándar)</span>}
+                        </div>
+                      )}
+
+                      <p className="text-[10px] font-mono text-[#155E37] font-semibold mt-1">${item.menuItem.price.toFixed(2)} c/u</p>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
-                        onClick={() => removeFromCart(item.menuItem.id)}
-                        className="p-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200"
+                        onClick={() => decrementCartItem(index)}
+                        className="p-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 cursor-pointer"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
                       <span className="font-bold font-mono text-stone-800 px-1">{item.quantity}</span>
                       <button
-                        onClick={() => addToCart(item.menuItem.id ? item.menuItem : item.menuItem)}
-                        className="p-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200"
+                        onClick={() => incrementCartItem(index)}
+                        className="p-1 rounded bg-stone-100 text-stone-600 hover:bg-stone-200 cursor-pointer"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
@@ -357,17 +488,26 @@ export default function CajeroPOS({
 
             {/* Receipt checkout math summary */}
             <div className="space-y-2 border-t border-gray-100 pt-3.5 text-xs font-sans">
-              <div className="flex items-center justify-between text-gray-500">
-                <span>Subtotal:</span>
-                <span className="font-mono">${(cartTotal * 0.9).toFixed(2)}</span>
+              <div className="flex items-center justify-between text-gray-400">
+                <span>Subtotal Neto:</span>
+                <span className="font-mono">${(cartTotal * 0.84).toFixed(2)}</span>
               </div>
-              <div className="flex items-center justify-between text-gray-500">
-                <span>IVA Incluido (16%):</span>
-                <span className="font-mono">${(cartTotal * 0.1).toFixed(2)}</span>
+              <div className="flex items-center justify-between text-gray-400">
+                <span>IVA Trasladado (16%):</span>
+                <span className="font-mono">${(cartTotal * 0.16).toFixed(2)}</span>
               </div>
+
+              {/* Applied Discount Promo details */}
+              {appliedDiscount > 0 && (
+                <div className="flex items-center justify-between text-rose-600 font-bold bg-rose-50 p-1.5 rounded-lg text-[10.5px]">
+                  <span>🏷️ Descuento Autorizado ({appliedDiscount}%):</span>
+                  <span className="font-mono">-${(cartTotal * (appliedDiscount / 100)).toFixed(2)}</span>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-stone-800 text-sm font-black border-t border-dashed border-gray-100 pt-2 pb-1">
-                <span>TOTAL A COBRAR:</span>
-                <span className="font-mono text-base text-[#155E37]">${cartTotal.toFixed(2)}</span>
+                <span>TOTAL CON DESCUENTO:</span>
+                <span className="font-mono text-base text-[#155E37]">${discountedTotal.toFixed(2)}</span>
               </div>
             </div>
 
@@ -397,19 +537,44 @@ export default function CajeroPOS({
                   </button>
                 </div>
 
+                {/* Supervisor Discount triggers */}
                 <div className="flex gap-2">
                   <button
+                    onClick={() => {
+                      setPendingDiscountValue(10);
+                      setAuthError('');
+                      setAuthPin('');
+                      setShowAuthModal('descuento');
+                    }}
+                    className="flex-1 text-[10.5px] py-1.5 px-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg font-bold text-center transition"
+                  >
+                    % Aplicar Descuento
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCart([]);
+                      setAppliedDiscount(0);
+                    }}
+                    className="flex-1 text-[10.5px] py-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-lg font-bold text-center transition"
+                  >
+                    🗑️ Cancelar Todo
+                  </button>
+                </div>
+
+                {/* Checkout Trigger */}
+                <div className="flex gap-2 pt-1">
+                  <button
                     onClick={clearCart}
-                    className="flex-1 py-2 px-3 border border-stone-200 text-stone-600 font-semibold rounded-lg hover:bg-stone-50 text-xs text-center"
+                    className="flex-1 py-2 px-3 border border-stone-200 text-stone-600 font-semibold rounded-lg hover:bg-stone-50 text-xs text-center cursor-pointer"
                   >
                     Vaciar Carrito
                   </button>
                   <button
                     onClick={() => {
-                      setCashReceived(cartTotal);
+                      setCashReceived(discountedTotal);
                       setShowCheckout(true);
                     }}
-                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg shadow-md text-xs transition"
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg shadow-md text-xs transition cursor-pointer"
                   >
                     Registrar Cobro
                   </button>
@@ -625,6 +790,267 @@ export default function CajeroPOS({
                 Cerrar Recibo &amp; Siguiente Orden
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* DIGITAL RECEIPT MODAL END */}
+
+      {/* 🌟 1. SELECT MODIFIERS MODAL (CUSTOMIZABLE ELOTE/ESQUITE) */}
+      {showModifiers && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 animate-fadeIn" id="modifiers_selection_modal">
+          <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 w-full max-w-sm overflow-hidden text-xs text-stone-800">
+            <div className="bg-[#155E37] text-white p-4.5 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] tracking-widest text-[#FBBF24] font-bold font-mono uppercase">Personalizar Platillo</span>
+                <h3 className="font-extrabold text-sm tracking-tight mt-0.5">{showModifiers.name}</h3>
+              </div>
+              <button onClick={() => setShowModifiers(null)} className="text-white hover:text-stone-200 text-lg">✕</button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Chile selection row */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-gray-400 font-mono uppercase tracking-wider">🌶️ Chile / Sabor:</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { key: 'pica', label: 'Del que pica🌶️' },
+                    { key: 'no_pica', label: 'Del que no pica🌽' },
+                    { key: 'sin', label: 'Sin chile' }
+                  ].map(c => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setSelectedChile(c.key as any)}
+                      className={`py-2 px-1 text-center rounded-lg border font-bold text-[10.5px] font-sans transition ${
+                        selectedChile === c.key
+                          ? 'bg-[#155E37] text-white border-[#155E37] shadow-sm'
+                          : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border-stone-100'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Aderezo selection row */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-gray-400 font-mono uppercase tracking-wider">🧴 Aderezo Base:</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { key: 'mayonesa', label: 'Mayonesa Artesanal' },
+                    { key: 'crema', label: 'Crema ácida' },
+                    { key: 'mantequilla', label: 'Mantequilla derretida' },
+                    { key: 'sin', label: 'Sin aderezo' }
+                  ].map(a => (
+                    <button
+                      key={a.key}
+                      type="button"
+                      onClick={() => setSelectedAderezo(a.key as any)}
+                      className={`py-2 px-2 text-center rounded-lg border font-bold text-[10px] transition ${
+                        selectedAderezo === a.key
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                          : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border-stone-100'
+                      }`}
+                    >
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Extra toppings row */}
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-gray-400 font-mono uppercase tracking-wider">🧀 Adiciones:</label>
+                <label className="flex items-center justify-between p-2.5 bg-stone-50 border border-stone-100 rounded-lg cursor-pointer hover:bg-stone-100/50 transition">
+                  <div>
+                    <p className="font-bold text-stone-700 text-[10.5px]">Agregar Extra Queso Cotija</p>
+                    <p className="text-[9.5px] text-gray-400">Sumará porción extra descontada automáticamente del inventario</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={extraQueso}
+                    onChange={(e) => setExtraQueso(e.target.checked)}
+                    className="w-4 h-4 rounded text-[#155E37] focus:ring-[#155E37]"
+                  />
+                </label>
+              </div>
+
+              <button
+                onClick={() => {
+                  addToCartWithModifiers(showModifiers, selectedChile, selectedAderezo, extraQueso);
+                  setShowModifiers(null);
+                }}
+                className="w-full bg-[#155E37] hover:bg-[#0E4025] text-white p-3 rounded-xl font-bold text-xs transition shadow-md"
+              >
+                ✓ Confirmar &amp; Añadir a la Orden
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 2. FAST CASH PAYOUTS / MOVEMENTS MODAL */}
+      {showAdjustmentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 animate-fadeIn" id="cash_adjustments_modal">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-sm overflow-hidden text-xs text-stone-800">
+            <div className="bg-amber-500 text-white p-4">
+              <h3 className="font-bold text-sm tracking-tight flex items-center gap-1.5">
+                <span>💸</span> Movimiento de Efectivo Caja Chica
+              </h3>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (adjAmount <= 0 || !adjDesc) return;
+                setCashAdjustments(prev => [...prev, {
+                  id: 'adj_' + Math.floor(Math.random() * 100000),
+                  type: adjType,
+                  amount: adjAmount,
+                  description: adjDesc,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                }]);
+                setShowAdjustmentModal(false);
+                alert(`✅ Movimiento registrado correctamente: ${adjType.toUpperCase()} $${adjAmount}`);
+              }}
+              className="p-5 space-y-4"
+            >
+              <div>
+                <label className="block text-gray-500 font-bold mb-1">Tipo de Operación:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjType('entrada')}
+                    className={`py-2 rounded-lg border text-center font-bold text-xs ${
+                      adjType === 'entrada' ? 'bg-green-500 text-white border-green-500' : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border-stone-100'
+                    }`}
+                  >
+                    📥 Registrar Entrada de Caja
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjType('salida')}
+                    className={`py-2 rounded-lg border text-center font-bold text-xs ${
+                      adjType === 'salida' ? 'bg-rose-500 text-white border-rose-500' : 'bg-stone-50 text-stone-600 hover:bg-stone-100 border-stone-100'
+                    }`}
+                  >
+                    📤 Retiro / Gasto Rápido
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1">Monto de Efectivo ($):</label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  step="1"
+                  value={adjAmount || ''}
+                  onChange={(e) => setAdjAmount(Number(e.target.value))}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 bg-stone-50 font-mono font-black text-center text-base"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1">Descripción / Justificación:</label>
+                <input
+                  type="text"
+                  required
+                  value={adjDesc}
+                  onChange={(e) => setAdjDesc(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg p-2 bg-stone-50"
+                  placeholder="Ej: Pago de hielo, flete de limones, etc."
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAdjustmentModal(false)}
+                  className="px-3 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-stone-50 font-bold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#155E37] text-white rounded-lg hover:bg-[#0E4025] font-bold"
+                >
+                  Registrar Movimiento
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🌟 3. SUPERVISOR CREDS AUTHORIZATION MODAL */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 animate-fadeIn" id="auth_pin_modal">
+          <div className="bg-white rounded-xl shadow-2xl border border-gray-100 w-full max-w-sm overflow-hidden text-xs text-stone-800">
+            <div className="bg-[#155E37] text-white p-4">
+              <h3 className="font-bold text-sm tracking-tight flex items-center gap-1.5">
+                🛡️ Autorización de Supervisor Requerida
+              </h3>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (authPin === '1111' || authPin === '2222' || authPin === '3333' || authPin === '1234') {
+                  if (showAuthModal === 'descuento') {
+                    setAppliedDiscount(pendingDiscountValue);
+                    alert(`✅ Autorizado por Supervisor. Descuento de ${pendingDiscountValue}% aplicado correctamente a esta orden.`);
+                  }
+                  setShowAuthModal(null);
+                  setAuthPin('');
+                  setAuthError('');
+                } else {
+                  setAuthError('❌ PIN incorrecto de supervisor. Los gerentes activos autorizados son Gaby Gómez (2222) y Sergio Salazar (3333).');
+                }
+              }}
+              className="p-5 space-y-4"
+            >
+              <div className="bg-amber-50 rounded-lg border border-amber-200 p-3 leading-snug text-amber-900">
+                <p className="font-bold mb-1">Nivel jerárquico no suficiente</p>
+                La aplicación de descuentos, cancelaciones y reembolsos debe quedar bitacorizada. Solicita a un Gerente o Administrador ingresar su PIN para autorizar.
+              </div>
+
+              <div>
+                <label className="block text-gray-500 font-bold mb-1">Ingresa el PIN de Supervisor:</label>
+                <input
+                  type="password"
+                  maxLength={4}
+                  required
+                  value={authPin}
+                  onChange={(e) => setAuthPin(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg p-2.5 bg-stone-50 text-center font-mono text-xl tracking-widest font-black"
+                  placeholder="••••"
+                />
+              </div>
+
+              {authError && <p className="text-red-650 font-bold font-sans mt-1 text-center">{authError}</p>}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[#FEF9E7]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuthModal(null);
+                    setAuthPin('');
+                    setAuthError('');
+                  }}
+                  className="px-3 py-2 border border-stone-200 text-stone-500 rounded-lg hover:bg-[#FEF9E7] font-bold"
+                >
+                  Atrás
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[#155E37] text-white rounded-lg hover:bg-[#0E4025] font-bold"
+                >
+                  ✓ Conceder Permiso
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
