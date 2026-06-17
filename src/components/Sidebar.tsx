@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BarChart3, ShoppingCart, Beef, BookOpen, Users, ClipboardCheck, Clock, Layers } from 'lucide-react';
+import { BarChart3, ShoppingCart, Beef, BookOpen, Users, ClipboardCheck, Clock, Layers, Home } from 'lucide-react';
 import { Role } from '../types';
 
 interface SidebarProps {
@@ -26,6 +26,7 @@ export default function Sidebar({ sidebarOpen, activeTab, setActiveTab, currentR
   if (currentRole === 'staff') return null;
 
   const menuItems: SidebarItem[] = [
+    { id: 'home', label: 'Inicio (Roles)', icon: Home, roles: ['admin', 'gerente', 'cajero'] },
     { id: 'dashboard', label: 'Estadísticas', icon: BarChart3, roles: ['admin', 'gerente'] },
     { id: 'pos', label: 'Punto de Venta POS', icon: ShoppingCart, roles: ['admin', 'gerente', 'cajero'] },
     { id: 'inventario', label: 'Inventario / Traspasos', icon: Layers, roles: ['admin', 'gerente'] },

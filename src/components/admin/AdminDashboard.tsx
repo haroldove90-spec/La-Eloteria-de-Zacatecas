@@ -86,8 +86,30 @@ export default function AdminDashboard({
   const totalCost = filteredSales.reduce((sum, s) => {
     return sum + s.items.reduce((itemSum, item) => itemSum + (item.cost * item.quantity), 0);
   }, 0);
-  const totalNet = totalGross - totalCost;
-  const netMargin = totalGross > 0 ? (totalNet / totalGross) * 100 : 0;
+
+  // Gastos Operativos: Renta, Luz, y Sueldos
+  const branchEmployees = employees.filter(e => e.active && (selectedBranchFilter === 'all' || e.branchId === selectedBranchFilter));
+  const localSalaries = branchEmployees.length * 280; // $280 MXN diario estimado por empleado activo
+
+  let localRent = 1100;
+  let localPower = 340;
+  if (selectedBranchFilter !== 'all') {
+    if (selectedBranchFilter === 'suc_centro') {
+      localRent = 550;
+      localPower = 170;
+    } else if (selectedBranchFilter === 'suc_norte') {
+      localRent = 400;
+      localPower = 110;
+    } else {
+      localRent = 150;
+      localPower = 60;
+    }
+  }
+
+  const totalOperatingExpenses = localRent + localPower + localSalaries;
+  const gananciaBruta = totalGross - totalCost;
+  const gananciaNeta = gananciaBruta - totalOperatingExpenses;
+  const netMargin = totalGross > 0 ? (gananciaNeta / totalGross) * 100 : 0;
   const ticketMedio = filteredSales.length > 0 ? totalGross / filteredSales.length : 0;
 
   // 2. ANALYZE MOST/LEAST SOLD ITEMS
@@ -304,48 +326,69 @@ export default function AdminDashboard({
       {activeSubTab === 'stats' && (
         <div className="space-y-6 animate-fadeIn">
           {/* Top KPI Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Ventas Brutas</p>
-                <h3 className="text-xl font-extrabold text-[#155E37] mt-1">${totalGross.toFixed(2)}</h3>
-                <span className="text-[10px] text-gray-500">Ingreso total en caja</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="bg-white p-4.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Ventas Totales</p>
+                <div className="p-1 px-2 bg-green-50 text-[#155E37] rounded-md text-[10px] font-bold">
+                  Ingresos
+                </div>
               </div>
-              <div className="p-3 bg-green-50 text-[#155E37] rounded-lg">
-                <DollarSign className="w-5 h-5" />
+              <div>
+                <h3 className="text-lg font-black text-[#155E37]">${totalGross.toFixed(2)}</h3>
+                <p className="text-[9.5px] text-gray-400 font-mono mt-1">Caja Sucursal Registrada</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
+            <div className="bg-white p-4.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Ganancia Bruta</p>
+                <div className="p-1 px-2 bg-amber-50 text-amber-700 rounded-md text-[10px] font-bold">
+                  Mat. Prima
+                </div>
+              </div>
               <div>
+                <h3 className="text-lg font-black text-amber-700">${gananciaBruta.toFixed(2)}</h3>
+                <p className="text-[9.5px] text-gray-400 font-mono mt-1">Menos costo de insumos (-${totalCost.toFixed(2)})</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-4.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Gastos Operativos</p>
+                <div className="p-1 px-2 bg-red-50 text-red-700 rounded-md text-[10px] font-bold">
+                  Operación
+                </div>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-red-600">${totalOperatingExpenses.toFixed(2)}</h3>
+                <p className="text-[9px] text-gray-400 font-mono mt-1">Renta: ${localRent} • Luz: ${localPower} • Sueldo: ${localSalaries}</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-4.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between ring-2 ring-emerald-550/20">
+              <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Ganancia Neta</p>
-                <h3 className="text-xl font-extrabold text-emerald-700 mt-1">${totalNet.toFixed(2)}</h3>
-                <span className="text-[10px] text-gray-500">Descontando insumos</span>
+                <div className="p-1 px-2 bg-emerald-100 text-emerald-800 rounded-md text-[10px] font-black animate-pulse">
+                  Utilidad
+                </div>
               </div>
-              <div className="p-3 bg-emerald-50 text-emerald-700 rounded-lg animate-pulse">
-                <TrendingUp className="w-5 h-5" />
+              <div>
+                <h3 className="text-lg font-black text-emerald-700">${gananciaNeta.toFixed(2)}</h3>
+                <p className="text-[9.5px] text-gray-400 font-mono mt-1">G. Bruta menos Gastos ({netMargin.toFixed(1)}%)</p>
               </div>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Margen de Ganancia</p>
-                <h3 className="text-xl font-extrabold text-amber-600 mt-1">{netMargin.toFixed(1)}%</h3>
-                <span className="text-[10px] text-gray-500">Excelente rentabilidad</span>
-              </div>
-              <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-            </div>
-
-            <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex items-center justify-between">
-              <div>
+            <div className="bg-white p-4.5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] uppercase font-bold text-gray-400 font-mono">Ticket Medio</p>
-                <h3 className="text-xl font-extrabold text-sky-700 mt-1">${ticketMedio.toFixed(2)}</h3>
-                <span className="text-[10px] text-gray-500">{filteredSales.length} compras totales</span>
+                <div className="p-1 px-2 bg-sky-50 text-sky-700 rounded-md text-[10px] font-bold">
+                  Promedio
+                </div>
               </div>
-              <div className="p-3 bg-sky-50 text-sky-700 rounded-lg">
-                <ShoppingBag className="w-5 h-5" />
+              <div>
+                <h3 className="text-lg font-black text-sky-700">${ticketMedio.toFixed(2)}</h3>
+                <p className="text-[9.5px] text-gray-400 font-mono mt-1">{filteredSales.length} transacciones</p>
               </div>
             </div>
           </div>

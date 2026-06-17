@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BarChart3, ShoppingCart, BookOpen, Users, ClipboardCheck, Clock, Layers } from 'lucide-react';
+import { BarChart3, ShoppingCart, BookOpen, Users, ClipboardCheck, Clock, Layers, Home } from 'lucide-react';
 import { Role } from '../types';
 
 interface MobileNavProps {
@@ -25,6 +25,7 @@ export default function MobileNav({ activeTab, setActiveTab, currentRole }: Mobi
   if (currentRole === 'staff') return null;
 
   const navItems: NavItem[] = [
+    { id: 'home', label: 'Inicio', icon: Home, roles: ['admin', 'gerente', 'cajero'] },
     { id: 'dashboard', label: 'Estadísticas', icon: BarChart3, roles: ['admin', 'gerente'] },
     { id: 'pos', label: 'POS Venta', icon: ShoppingCart, roles: ['admin', 'gerente', 'cajero'] },
     { id: 'inventario', label: 'Inventario', icon: Layers, roles: ['admin', 'gerente'] },

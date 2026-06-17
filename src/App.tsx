@@ -28,6 +28,7 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import GerenteDashboard from './components/gerente/GerenteDashboard';
 import CajeroPOS from './components/cajero/CajeroPOS';
 import StaffClock from './components/staff/StaffClock';
+import HomePortal from './components/HomePortal';
 
 // Helper storage function
 function useLocalStorageState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
@@ -73,7 +74,7 @@ export default function App() {
     return adminEmp || INITIAL_EMPLOYEES[0];
   });
   const [currentBranchId, setCurrentBranchId] = useState<string>('all');
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('home');
 
   // 3. PWA Installation Handler State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -112,6 +113,18 @@ export default function App() {
     }
 
     switch (activeTab) {
+      case 'home':
+        return (
+          <HomePortal
+            currentRole={currentRole}
+            setCurrentRole={setCurrentRole}
+            currentEmployee={currentEmployee}
+            setCurrentEmployee={setCurrentEmployee}
+            employees={employees}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+          />
+        );
       case 'dashboard':
         if (currentRole === 'admin') {
           return (
@@ -403,7 +416,7 @@ export default function App() {
           id="active_viewport_panel"
         >
           {/* Quick diagnostic alert if current Role restricts access */}
-          {currentRole !== 'staff' && !['dashboard', 'pos', 'inventario', 'menu', 'personal', 'cortes', 'asistencia'].includes(activeTab) && (
+          {currentRole !== 'staff' && !['home', 'dashboard', 'pos', 'inventario', 'menu', 'personal', 'cortes', 'asistencia'].includes(activeTab) && (
             <div className="p-3 bg-amber-50 border border-amber-205 rounded-xl font-mono text-xs text-amber-700 font-semibold mb-4 text-center">
               Aviso: Ruta actual vacía. Por favor, selecciona un módulo del menú lateral.
             </div>
