@@ -20,6 +20,7 @@ interface HeaderProps {
   employees: Employee[];
   branches: Branch[];
   clockIns: ClockInLog[];
+  activeTab: string;
   setActiveTab: (tab: string) => void;
   onInstall?: () => void;
 }
@@ -36,6 +37,7 @@ export default function Header({
   employees,
   branches,
   clockIns,
+  activeTab,
   setActiveTab,
   onInstall,
 }: HeaderProps) {
@@ -146,6 +148,20 @@ export default function Header({
           >
             <span>📱</span>
             <span className="hidden xs:inline">Instalar App</span>
+          </button>
+        )}
+
+        {/* Global Cerrar Sesion Button */}
+        {activeTab !== 'home' && (
+          <button
+            onClick={() => setActiveTab('home')}
+            className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-1.5 rounded-full text-xs font-extrabold transition shadow-md cursor-pointer border border-rose-700 anim-pulse animate-fadeIn"
+            title="Cerrar sesión y volver al Portal de Inicio"
+            id="global_logout_header_btn"
+          >
+            <span>🚪</span>
+            <span className="hidden sm:inline">Cerrar Sesión</span>
+            <span className="sm:hidden">Salir</span>
           </button>
         )}
 

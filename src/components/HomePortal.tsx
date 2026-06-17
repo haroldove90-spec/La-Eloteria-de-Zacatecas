@@ -13,6 +13,7 @@ interface HomePortalProps {
   employees: Employee[];
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onInstall?: () => void;
 }
 
 export default function HomePortal({
@@ -22,7 +23,8 @@ export default function HomePortal({
   setCurrentEmployee,
   employees,
   activeTab,
-  setActiveTab
+  setActiveTab,
+  onInstall
 }: HomePortalProps) {
 
   // Representative employees for quick swap
@@ -140,7 +142,7 @@ export default function HomePortal({
           <span className="bg-[#FBBF24] text-[#155E37] font-extrabold text-[10px] tracking-widest px-2.5 py-1 rounded-full uppercase font-mono">
             Portal Unificado de Operaciones
           </span>
-          <h1 className="text-xl md:text-3xl font-black tracking-tight font-sans">
+          <h1 className="text-xl md:text-3xl font-black tracking-tight font-sans animate-bounce-slow">
             ¡Bienvenidos a La Elotería de Zacatecas! 🌽✨
           </h1>
           <p className="text-xs md:text-sm text-amber-50/90 font-medium leading-relaxed">
@@ -159,66 +161,170 @@ export default function HomePortal({
         </div>
       </div>
 
-      {/* 2. Interactive Role Switcher Panel */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between border-b border-gray-250 pb-2">
-          <div>
-            <h2 className="text-sm font-black text-stone-800 uppercase tracking-wider font-mono">Selección de Roles Activos</h2>
-            <p className="text-stone-400 text-[10.5px]">Haz clic en cualquier rol para iniciar sesión simulada y explorar sus funciones:</p>
+      {/* 2. EXPLICIT PWA INSTALLATION BANNER */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-transparent border-2 border-dashed border-amber-300 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="p-3 bg-[#155E37] text-white rounded-2xl shadow-md shrink-0 flex items-center justify-center text-2xl">
+              📱
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-extrabold text-stone-800 text-sm tracking-tight flex items-center gap-2">
+                Instalar Aplicación en Dispositivos Móviles y Tablets
+                <span className="bg-amber-100 text-amber-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full uppercase animate-pulse">
+                  Recomendado
+                </span>
+              </h3>
+              <p className="text-stone-500 text-[11px] leading-relaxed max-w-xl">
+                ¿Quieres usar el Punto de Venta en tablet o registrar asistencia de empleados desde un celular? Instala la app directamente en la pantalla de inicio con un solo clic.
+              </p>
+            </div>
           </div>
-          <span className="text-[10px] font-mono text-stone-500 font-semibold bg-stone-100 rounded-full px-2 py-0.5">
-            Rol actual simulado: <strong>{currentRole.toUpperCase()}</strong>
-          </span>
+          {onInstall && (
+            <button
+              onClick={onInstall}
+              className="w-full sm:w-auto shrink-0 flex items-center justify-center gap-2 bg-[#155E37] hover:bg-[#0E4025] text-white px-5 py-3 rounded-xl font-black text-xs transition shadow-md hover:scale-103 cursor-pointer"
+              id="home_pwa_install_direct_btn"
+            >
+              <span>📥</span>
+              <span>INSTALAR EN DISPOSITIVO</span>
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Mini responsive instruction guide */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-amber-200/50 text-[10px] text-stone-600">
+          <div className="flex items-center gap-2 bg-white/80 p-2 rounded-lg border border-stone-100">
+            <span className="bg-amber-500 text-white font-mono font-black rounded-full w-4 h-4 flex items-center justify-center shrink-0">1</span>
+            <span><strong>Chrome:</strong> Opciones ➔ Instalar Aplicación</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/80 p-2 rounded-lg border border-stone-100">
+            <span className="bg-amber-500 text-white font-mono font-black rounded-full w-4 h-4 flex items-center justify-center shrink-0">2</span>
+            <span><strong>iOS Safari:</strong> Compartir ➔ Añadir a Inicio</span>
+          </div>
+          <div className="flex items-center gap-2 bg-white/80 p-2 rounded-lg border border-stone-100">
+            <span className="bg-amber-500 text-white font-mono font-black rounded-full w-4 h-4 flex items-center justify-center shrink-0">3</span>
+            <span><strong>Para Iframe:</strong> Abre en pestaña nueva arriba ➔ Instalar</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Interactive Role Switcher Panel */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-200 pb-3">
+          <div>
+            <h2 className="text-xs font-black text-[#155E37] uppercase tracking-widest font-mono flex items-center gap-2">
+              <span>🔑</span> PORTAL DE ACCESO DIRECTO POR ROLES
+            </h2>
+            <p className="text-stone-400 text-[11px] mt-0.5">
+              Haz clic en el rol correspondiente para iniciar sesión y desplegar sus herramientas del checklist funcional:
+            </p>
+          </div>
+          <div className="bg-[#155E37]/10 text-[#155E37] text-[10.5px] font-mono font-black px-3.5 py-1.5 rounded-full border border-[#155E37]/20 flex items-center gap-1.5">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            Rol Simulado Actual: {currentRole.toUpperCase()}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {roleCards.map(card => {
             const Icon = card.icon;
             const isCurrent = currentRole === card.role;
+            
+            // Set beautiful styles based on role to avoid cluttering
+            const styles: Record<Role, { primary: string; hover: string; bg: string; dot: string; shadow: string; banner: string }> = {
+              admin: { 
+                primary: 'text-red-700 border-red-200 hover:border-red-400', 
+                hover: 'group-hover:bg-red-500 group-hover:text-white', 
+                bg: 'bg-red-500 text-white', 
+                dot: 'bg-red-500', 
+                shadow: 'hover:shadow-red-500/5',
+                banner: 'from-red-50 to-white'
+              },
+              gerente: { 
+                primary: 'text-amber-700 border-amber-200 hover:border-amber-400', 
+                hover: 'group-hover:bg-amber-500 group-hover:text-white', 
+                bg: 'bg-amber-500 text-white', 
+                dot: 'bg-amber-500', 
+                shadow: 'hover:shadow-amber-500/5',
+                banner: 'from-amber-50 to-white'
+              },
+              cajero: { 
+                primary: 'text-[#155E37] border-emerald-250 hover:border-[#155E37]', 
+                hover: 'group-hover:bg-[#155E37] group-hover:text-white', 
+                bg: 'bg-[#155E37] text-white', 
+                dot: 'bg-[#155E37]', 
+                shadow: 'hover:shadow-[#155E37]/5',
+                banner: 'from-emerald-50 to-white'
+              },
+              staff: { 
+                primary: 'text-blue-700 border-blue-200 hover:border-blue-400', 
+                hover: 'group-hover:bg-blue-500 group-hover:text-white', 
+                bg: 'bg-blue-500 text-white', 
+                dot: 'bg-blue-500', 
+                shadow: 'hover:shadow-blue-500/5',
+                banner: 'from-blue-50 to-white'
+              }
+            };
+            const roleStyle = styles[card.role];
+
             return (
               <div
                 key={card.role}
                 onClick={() => handleSelectRole(card.role)}
-                className={`group border rounded-2xl p-4.5 transition duration-300 cursor-pointer flex flex-col justify-between h-[300px] select-none hover:shadow-lg relative overflow-hidden bg-white ${
+                className={`group border-2 rounded-2xl p-5 transition-all duration-300 cursor-pointer flex flex-col justify-between h-[340px] select-none bg-white hover:-translate-y-1 hover:shadow-lg relative overflow-hidden ${
                   isCurrent
-                    ? 'border-[#155E37] ring-2 ring-[#155E37]/10'
-                    : 'border-stone-200 hover:border-amber-400'
-                }`}
+                    ? 'border-[#155E37] ring-4 ring-[#155E37]/10 shadow-md'
+                    : 'border-stone-200'
+                } ${roleStyle.shadow}`}
                 id={`role_card_${card.role}`}
               >
                 {/* Active Indicator Top Corner */}
                 {isCurrent && (
-                  <div className="absolute top-0 right-0 bg-[#155E37] text-white font-mono font-black text-[9px] px-2.5 py-1 rounded-bl-xl uppercase tracking-wider">
-                    Activo
+                  <div className="absolute top-0 right-0 bg-[#155E37] text-white font-mono font-black text-[9px] px-3.5 py-1.5 rounded-bl-xl uppercase tracking-wider">
+                    SESIÓN ACTIVA
                   </div>
                 )}
 
-                <div className="space-y-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2.5 rounded-xl ${isCurrent ? 'bg-[#155E37]/10 text-[#155E37]' : 'bg-stone-50 text-stone-600 group-hover:bg-amber-400/10 group-hover:text-amber-600'} transition duration-200 shadow-sm`}>
-                      <Icon className="w-5 h-5" />
+                {/* Mexican ornament subtle bottom pattern in card */}
+                <div className="absolute -bottom-8 -right-8 opacity-4 select-none pointer-events-none text-6xl">
+                  🌽
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    {/* Big beautiful circle icon badge */}
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner font-bold transition-all duration-300 ${
+                      isCurrent ? roleStyle.bg : 'bg-stone-50 text-stone-700 ' + roleStyle.hover
+                    }`}>
+                      {card.avatar}
                     </div>
                     <div>
-                      <h3 className={`font-extrabold text-xs tracking-tight ${isCurrent ? 'text-[#155E37]' : 'text-stone-800'}`}>
+                      <h3 className={`font-black text-xs uppercase tracking-tight ${isCurrent ? 'text-[#155E37]' : 'text-stone-800'}`}>
                         {card.title}
                       </h3>
-                      <p className="text-[9.5px] text-stone-400 font-medium">{card.subtitle}</p>
+                      <p className="text-[10px] text-stone-400 font-mono font-semibold">{card.subtitle}</p>
                     </div>
                   </div>
 
-                  <p className="text-[10px] text-stone-500 leading-relaxed font-sans mt-1">
+                  <p className="text-[10.5px] text-stone-500 leading-relaxed font-sans">
                     {card.description}
                   </p>
 
-                  <div className="pt-2 border-t border-stone-50 space-y-1">
-                    <p className="text-[9px] font-extrabold text-stone-400 uppercase tracking-widest font-mono">Módulos que opera:</p>
-                    <ul className="space-y-0.5">
-                      {card.modules.map((mod, i) => (
-                        <li key={i} className="flex items-center gap-1 text-[9.5px] text-stone-605">
-                          <CheckCircle2 className="w-2.5 h-2.5 text-[#155E37] shrink-0" />
+                  <div className="pt-2 border-t border-stone-100 space-y-1.5">
+                    <p className="text-[8.5px] font-black text-stone-405 uppercase tracking-widest font-mono">Modificados y Funciones:</p>
+                    <ul className="space-y-1">
+                      {card.modules.slice(0, 4).map((mod, i) => (
+                        <li key={i} className="flex items-center gap-1.5 text-[9.5px] text-stone-600 font-medium">
+                          <CheckCircle2 className="w-3 h-3 text-[#155E37] shrink-0" />
                           <span className="truncate">{mod}</span>
                         </li>
                       ))}
+                      {card.modules.length > 4 && (
+                        <li className="text-[9px] text-[#155E37] font-bold pl-4.5">
+                          + {card.modules.length - 4} módulos más
+                        </li>
+                      )}
                     </ul>
                   </div>
                 </div>
@@ -228,13 +334,13 @@ export default function HomePortal({
                     e.stopPropagation();
                     handleSelectRole(card.role);
                   }}
-                  className={`w-full mt-3.5 flex items-center justify-between p-2.5 rounded-xl font-bold text-[10.5px] transition duration-200 shadow-sm ${
+                  className={`w-full mt-4 flex items-center justify-between p-3 rounded-xl font-bold text-[10.5px] transition duration-200 shadow-sm ${
                     isCurrent
                       ? 'bg-[#155E37] text-white hover:bg-[#0E4025]'
-                      : 'bg-stone-50 text-stone-600 border border-stone-100 hover:bg-stone-100'
+                      : 'bg-stone-50 text-stone-600 border border-stone-200 hover:bg-stone-100'
                   }`}
                 >
-                  <span>Ingresar como {card.role.toUpperCase()}</span>
+                  <span className="uppercase tracking-wider">ENTRAR COMO {card.role.toUpperCase()}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -243,7 +349,7 @@ export default function HomePortal({
         </div>
       </div>
 
-      {/* 3. Detailed Checklist Mapping to user requirements */}
+      {/* 4. Detailed Checklist Mapping to user requirements */}
       <div className="bg-white rounded-2xl border border-stone-200 p-5 mt-6 space-y-4 shadow-sm">
         <div className="border-b border-stone-100 pb-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">

@@ -123,6 +123,7 @@ export default function App() {
             employees={employees}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            onInstall={handleInstallApp}
           />
         );
       case 'dashboard':
@@ -395,6 +396,7 @@ export default function App() {
         employees={employees}
         branches={branches}
         clockIns={clockIns}
+        activeTab={activeTab}
         setActiveTab={setActiveTab}
         onInstall={handleInstallApp}
       />
