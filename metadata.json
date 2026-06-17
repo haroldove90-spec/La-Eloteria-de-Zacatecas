@@ -1,0 +1,6 @@
+{
+  "name": "La Elotería de Zacatecas",
+  "description": "Dashboard de gestión integral para Elotes con roles especializados para dueño, gerente de sucursal, cajero y staff.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
